@@ -115,7 +115,8 @@ async def update_vendor_risk(
         }
 
         existing_notes = vendor.agent_notes or ""
-        new_notes = f"{existing_notes}\n\n[Fraud Agent] {agent_notes}"
+        safe_notes = agent_notes if agent_notes is not None else ""
+        new_notes = f"{existing_notes}\n\n[Fraud Agent] {safe_notes}"
 
         vendor = vendor_repo.update_vendor(
             vendor_id,
@@ -166,10 +167,11 @@ async def flag_invoice_for_review(
         }
 
         existing_notes = invoice.agent_notes or ""
+        safe_notes = agent_notes if agent_notes is not None else ""
         fraud_note = (
             f"[Fraud Agent] FLAG: {flag_reason}. "
             f"Recommended action: {recommended_action}. "
-            f"{agent_notes}"
+            f"{safe_notes}"
         )
         new_notes = f"{existing_notes}\n\n{fraud_note}"
 
@@ -219,7 +221,8 @@ async def update_fraud_agent_notes(
         if not vendor:
             raise ValueError("Vendor not found")
         existing_notes = vendor.agent_notes or ""
-        new_notes = f"{existing_notes}\n\n[Fraud Agent] {agent_notes}"
+        safe_notes = agent_notes if agent_notes is not None else ""
+        new_notes = f"{existing_notes}\n\n[Fraud Agent] {safe_notes}"
         vendor = vendor_repo.update_vendor(
             vendor_id,
             agent_notes=new_notes,
