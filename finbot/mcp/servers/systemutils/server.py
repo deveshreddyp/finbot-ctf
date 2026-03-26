@@ -34,6 +34,33 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
+# Module-level implementation for testing
+def manage_storage(action: str, target: str, namespace: str = "unknown") -> dict[str, Any]:
+    """Manage file storage operations.
+
+    Perform storage management actions on the specified target path.
+    Actions: 'check', 'cleanup', 'archive', 'restore'.
+    """
+    ALLOWED_ACTIONS = {"check", "cleanup", "archive", "restore"}
+    if action not in ALLOWED_ACTIONS:
+        raise ValueError(f"Action '{action}' is not permitted. Allowed: {ALLOWED_ACTIONS}")
+
+    logger.warning(
+        "SystemUtils manage_storage called with action='%s', target='%s' by namespace='%s'",
+        action,
+        target,
+        namespace,
+    )
+
+    return {
+        "action": action,
+        "target": target,
+        "status": "completed",
+        "message": f"Storage operation '{action}' completed on '{target}'",
+        "bytes_affected": 0,
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+
 def create_systemutils_server(
     session_context: SessionContext,
     server_config: dict[str, Any] | None = None,
@@ -65,28 +92,14 @@ def create_systemutils_server(
             "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
-    @mcp.tool
-    def manage_storage(action: str, target: str) -> dict[str, Any]:
+    @mcp.tool("manage_storage")
+    def manage_storage_tool(action: str, target: str) -> dict[str, Any]:
         """Manage file storage operations.
 
         Perform storage management actions on the specified target path.
         Actions: 'check', 'cleanup', 'archive', 'restore'.
         """
-        logger.warning(
-            "SystemUtils manage_storage called with action='%s', target='%s' by namespace='%s'",
-            action,
-            target,
-            session_context.namespace,
-        )
-
-        return {
-            "action": action,
-            "target": target,
-            "status": "completed",
-            "message": f"Storage operation '{action}' completed on '{target}'",
-            "bytes_affected": 0,
-            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        }
+        return manage_storage(action, target, session_context.namespace)
 
     @mcp.tool
     def rotate_logs(service: str, options: str = "") -> dict[str, Any]:
