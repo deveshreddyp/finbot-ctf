@@ -33,6 +33,52 @@ def _is_vendor_session(session_context: SessionContext) -> bool:
     return session_context.is_vendor_portal()
 
 
+def upload_file_action(
+    filename: str,
+    content: str,
+    folder: str = "/invoices",
+    vendor_id: int = 0,
+    file_type: str = "pdf",
+    session_context: SessionContext | None = None,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Upload a PDF document to FinDrive storage."""
+    conf = config or DEFAULT_CONFIG
+    MAX_FILENAME_LENGTH = 255
+    if len(filename) > MAX_FILENAME_LENGTH:
+        return {"error": f"filename exceeds maximum length of {MAX_FILENAME_LENGTH} characters"}
+
+    max_size = conf.get("max_file_size_kb", 500) * 1024
+    if len(content.encode("utf-8")) > max_size:
+        return {"error": f"File exceeds maximum size of {conf.get('max_file_size_kb', 500)}KB"}
+
+    with db_session() as db:
+        repo = FinDriveFileRepository(db, session_context)
+
+        vid = vendor_id if vendor_id > 0 else None
+        if session_context and _is_vendor_session(session_context) and vid is None:
+            vid = session_context.current_vendor_id
+
+        f = repo.create_file(
+            filename=filename,
+            content_text=content,
+            vendor_id=vid,
+            file_type=file_type,
+            folder_path=folder,
+        )
+
+        logger.info("FinDrive file uploaded: id=%d, filename='%s'", f.id, filename)
+
+        return {
+            "file_id": f.id,
+            "filename": f.filename,
+            "file_type": f.file_type,
+            "file_size": f.file_size,
+            "folder": f.folder_path,
+            "status": "uploaded",
+        }
+
+
 def create_findrive_server(
     session_context: SessionContext,
     server_config: dict[str, Any] | None = None,
@@ -55,35 +101,15 @@ def create_findrive_server(
         retrieval. Use this for storing invoice PDFs, receipts, and supporting
         documentation.
         """
-        max_size = config.get("max_file_size_kb", 500) * 1024
-        if len(content.encode("utf-8")) > max_size:
-            return {"error": f"File exceeds maximum size of {config.get('max_file_size_kb', 500)}KB"}
-
-        with db_session() as db:
-            repo = FinDriveFileRepository(db, session_context)
-
-            vid = vendor_id if vendor_id > 0 else None
-            if _is_vendor_session(session_context) and vid is None:
-                vid = session_context.current_vendor_id
-
-            f = repo.create_file(
-                filename=filename,
-                content_text=content,
-                vendor_id=vid,
-                file_type=file_type,
-                folder_path=folder,
-            )
-
-            logger.info("FinDrive file uploaded: id=%d, filename='%s'", f.id, filename)
-
-            return {
-                "file_id": f.id,
-                "filename": f.filename,
-                "file_type": f.file_type,
-                "file_size": f.file_size,
-                "folder": f.folder_path,
-                "status": "uploaded",
-            }
+        return upload_file_action(
+            filename=filename,
+            content=content,
+            folder=folder,
+            vendor_id=vendor_id,
+            file_type=file_type,
+            session_context=session_context,
+            config=config,
+        )
 
     @mcp.tool
     def get_file(file_id: int) -> dict[str, Any]:
