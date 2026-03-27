@@ -1,6 +1,11 @@
 import pytest
-from finbot.mcp.servers.findrive.server import upload_file_action as upload_file
+import asyncio
+from unittest.mock import MagicMock
+from finbot.mcp.servers.findrive.server import create_findrive_server
 
+_mcp = create_findrive_server(MagicMock())
+# Unwrap the @mcp.tool decorator to call upload_file() directly 
+upload_file = asyncio.run(_mcp.get_tool("upload_file")).fn
 class TestStrFieldEdgeCases:
     def test_fd_upload_001_upload_returns_file_id_and_metadata(self):
         # Test a valid filename (<= 255 chars) to ensure no regressions
